@@ -179,30 +179,46 @@ class Go2Robot(LeggedRobot):
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
     def create_competition_map(self):
-        num_terains = 9
-        terrain_width = self.cfg.terrain.terrain_width
-        terrain_length = self.cfg.terrain.terrain_length
-        horizontal_scale = self.cfg.terrain.horizontal_scale
-        vertical_scale = self.cfg.terrain.vertical_scale
-        num_rows = int(terrain_width/horizontal_scale)
-        num_cols = int(terrain_length/horizontal_scale)
+        """
+        创建一个用于竞赛的复杂地形地图。该方法通过组合多种不同类型的子地形（如斜坡、阶梯、障碍物等），
+        构建出一个具有挑战性的三维地形网格，并将其加载到仿真环境中。
 
+        本函数不接受参数，也不返回任何值。所有配置均从 self.cfg 中读取。
+        """
 
+        num_terains = 9                                             # 地形数量
+        terrain_width = self.cfg.terrain.terrain_width              # 地形宽度
+        terrain_length = self.cfg.terrain.terrain_length            # 地形长度
+        horizontal_scale = self.cfg.terrain.horizontal_scale        # 水平缩放
+        vertical_scale = self.cfg.terrain.vertical_scale            # 垂直缩放
+        num_rows = int(terrain_width/horizontal_scale)              # 行数
+        num_cols = int(terrain_length/horizontal_scale)             # 列数
+
+        # 定义创建新子地形的辅助函数
         def new_sub_terrain(): return SubTerrain(width=num_rows, length=num_cols, vertical_scale=vertical_scale, horizontal_scale=horizontal_scale)
 
+        # 分别构建不同的子地形并填充到高度图中
         self.terrain.heightsamples[0:num_rows, :] =  sloped_terrain(new_sub_terrain(), slope=0.0).height_field_raw
+        # 创建一个完全平坦的地形区域
         self.terrain.heightsamples[num_rows:2*num_rows, :] = pyramid_sloped_terrain(new_sub_terrain(), slope=-0.3).height_field_raw
         #self.terrain.heightsamples[num_rows:2*num_rows, :] = sloped_terrain(new_sub_terrain(), slope=0.1).height_field_raw
+        # 创建一个向下倾斜的金字塔形斜坡
         self.terrain.heightsamples[2*num_rows:3*num_rows, :] = random_uniform_terrain(new_sub_terrain(), min_height=-0.15, max_height=0.15, step=0.2, downsampled_scale=0.5).height_field_raw
+        # 创建随机高度变化的地形，高度在-0.15到0.15米之间
         self.terrain.heightsamples[3*num_rows:4*num_rows,:] = discrete_obstacles_terrain(new_sub_terrain(), max_height=0.15, min_size=1., max_size=5., num_rects=20).height_field_raw
+        # 创建包含20个矩形障碍物的地形
         self.terrain.heightsamples[4*num_rows:5*num_rows,:] = wave_terrain(new_sub_terrain(), num_waves=2., amplitude=1.).height_field_raw
+        # 创建具有2个波浪的波浪形地形
         self.terrain.heightsamples[5*num_rows:6*num_rows, :] = stairs_terrain(new_sub_terrain(), step_width=0.75, step_height=0.25).height_field_raw
+        # 创建台阶宽度为0.75米，台阶高度为0.25米的上楼梯
         self.terrain.heightsamples[6*num_rows:7*num_rows, :] = stairs_terrain(new_sub_terrain(), step_width=0.75, step_height=-0.25,init_height=850).height_field_raw
         #self.terrain.heightsamples[6*num_rows:7*num_rows,:48] = pyramid_stairs_terrain(new_sub_terrain(), step_width=0.75, step_height=-0.5).height_field_raw
-        self.terrain.heightsamples[7*num_rows:8*num_rows,:] = stepping_stones_terrain(new_sub_terrain(), stone_size=1.,
-                                                                        stone_distance=0.25, max_height=0.2, platform_size=0.).height_field_raw
-
+        # 创建台阶宽度为0.75米，台阶高度为-0.25米的下楼梯
+        self.terrain.heightsamples[7*num_rows:8*num_rows,:] = stepping_stones_terrain(new_sub_terrain(), stone_size=1., stone_distance=0.25, max_height=0.2, platform_size=0.).height_field_raw
+        # 创建踏脚石地形，石头大小为1米，石头间距为0.25米，高度最大为0.2米
         
+         
+        # 将高度场转换为三角网格并添加至 Gym 仿真器中
         self.terrain.vertices, self.terrain.triangles = convert_heightfield_to_trimesh(self.terrain.heightsamples, horizontal_scale=horizontal_scale, vertical_scale=vertical_scale, slope_threshold=1.5)
         tm_params = gymapi.TriangleMeshParams()
         tm_params.nb_vertices = self.terrain.vertices.shape[0]
@@ -211,6 +227,7 @@ class Go2Robot(LeggedRobot):
         tm_params.transform.p.y = -0.
         self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(), self.terrain.triangles.flatten(), tm_params)
 
+        # 计算每环境像素尺寸及总行列数
         self.width_per_env_pixels = int(terrain_width / horizontal_scale)
         self.length_per_env_pixels = int(terrain_length / horizontal_scale)
 
@@ -218,13 +235,12 @@ class Go2Robot(LeggedRobot):
         self.tot_cols = int(self.cfg.terrain.num_cols * self.width_per_env_pixels) #+ 2 * self.border
         self.tot_rows = int(self.cfg.terrain.num_rows * self.length_per_env_pixels) #+ 2 * self.border
 
+        # 初始化最终的高度图数组并将已生成的数据复制进去
         self.height_field_raw = np.zeros((self.tot_rows , self.tot_cols), dtype=np.int16)
         self.height_field_raw[:,:] = self.terrain.heightsamples[:,:]
 
-
-
+        # 转换为 PyTorch 张量并存储在设备上
         self.height_samples = torch.tensor(self.height_field_raw).view(self.tot_rows, self.terrain.tot_cols).to(self.device)
-
     def create_sim(self):
         """ Creates simulation, terrain and evironments
         """

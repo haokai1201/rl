@@ -39,7 +39,9 @@ class BaseTask():
 
     def __init__(self, cfg, sim_params, physics_engine, sim_device, headless):
         self.gym = gymapi.acquire_gym()
-
+        # 把 gpu_pipeline 开关提前写进 sim_params
+        self.sim_params.use_gpu_pipeline = True
+        # 其余参数保持默认即可，Isaac Gym 会在创建 sim 时一次性分配显存
         self.sim_params = sim_params
         self.physics_engine = physics_engine
         self.sim_device = sim_device

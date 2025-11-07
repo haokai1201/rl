@@ -125,15 +125,30 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
-    # seed
+    """
+    根据命令行参数更新环境配置和训练配置
+    
+    Args:
+        env_cfg: 环境配置对象，包含环境相关的配置参数
+        cfg_train: 训练配置对象，包含训练相关的配置参数
+        args: 命令行参数对象，包含用户传入的各类参数
+    
+    Returns:
+        tuple: (env_cfg, cfg_train) 更新后的环境配置和训练配置对象
+    """
+    # 更新环境配置
     if env_cfg is not None:
-        # num envs
+        # 更新环境数量配置
         if args.num_envs is not None:
             env_cfg.env.num_envs = args.num_envs
+    
+    # 更新训练配置
     if cfg_train is not None:
+        # 更新随机种子
         if args.seed is not None:
             cfg_train.seed = args.seed
-        # alg runner parameters
+        
+        # 更新算法运行器参数
         if args.max_iterations is not None:
             cfg_train.runner.max_iterations = args.max_iterations
         if args.resume:

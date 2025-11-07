@@ -64,8 +64,7 @@ cd legged_gym/legged_gym/scripts
 
 ```python
 conda activate legged_robot_parkour
-cd legged_gym/legged_gym/scripts
-python train.py --task=go2 --num_envs=64 --headless --max_iterations=50
+python legged_gym/legged_gym/scripts/train.py --task=go2 --headless
 ```
 
 我这里发现报错
@@ -92,9 +91,7 @@ AttributeError: module 'numpy' has no attribute 'float'.
 
 ```sh
 conda activate legged_robot_parkour
-cd legged_gym/legged_gym/scripts
-
-python play.py --task=go2 --num_envs=1  --checkpoint=50 --load_run=/path/to/your/project/legged_gym/logs/rough_go2/yourtime
+python legged_gym/legged_gym/scripts/play.py --task=go2 --num_envs=1  --checkpoint=50 --load_run=/path/to/your/project/legged_gym/logs/rough_go2/yourtime
 ```
 
 现在，**你已经是个成熟的RLer了，能自己完成这个项目了**，以下是进阶内容。

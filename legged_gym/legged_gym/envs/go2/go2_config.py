@@ -2,8 +2,12 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class Go2RoughCfg( LeggedRobotCfg ):
 
+    class sim(LeggedRobotCfg.sim):
+        use_gpu_pipeline = True  # 确保启用GPU管线
+        use_gpu = True           # 确保使用GPU仿真
+        # gpu_device = [0, 1]  # 使用双GPU
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
+        num_envs = 512
         num_observations = 235
         symmetric = True  #True :  set num_privileged_obs = None;    false: num_privileged_obs = observations + 187 ,set "terrain.measure_heights" to true
         num_privileged_obs = 235#num_observations + 187 # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise 
@@ -145,6 +149,8 @@ class Go2RoughCfg( LeggedRobotCfg ):
 class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
+        num_learning_epochs = 10  # 增加学习轮数
+        num_mini_batches = 4     # 调整mini-batch数量
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_go2'
@@ -152,7 +158,7 @@ class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
   
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
-        num_steps_per_env = 48 # per iteration
+        num_steps_per_env = 96 # per iteration
         max_iterations = 6000 # number of policy updates
 
         # logging
@@ -162,3 +168,6 @@ class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
         load_run = -1 # -1 = last run
         checkpoint = -1 # -1 = last saved model
         resume_path = None # updated from load_run and chkpt
+
+    class policy(LeggedRobotCfgPPO.policy):
+        mixed_precision = True  # 启用混合精度训练

@@ -63,37 +63,39 @@ class TaskRegistry():
         return env_cfg, train_cfg
     
     def make_env(self, name, args=None, env_cfg=None) -> Tuple[VecEnv, LeggedRobotCfg]:
-        """ Creates an environment either from a registered namme or from the provided config file.
+        """根据注册的名称或提供的配置文件创建环境。
 
-        Args:
-            name (string): Name of a registered env.
-            args (Args, optional): Isaac Gym comand line arguments. If None get_args() will be called. Defaults to None.
-            env_cfg (Dict, optional): Environment config file used to override the registered config. Defaults to None.
+        参数:
+            name (string): 已注册环境的名称
+            args (Args, 可选): Isaac Gym命令行参数。如果为None，则会调用get_args()。默认为None
+            env_cfg (Dict, 可选): 用于覆盖已注册配置的环境配置文件。默认为None
 
-        Raises:
-            ValueError: Error if no registered env corresponds to 'name' 
+        异常:
+            ValueError: 如果没有与'name'对应的已注册环境则抛出错误
 
-        Returns:
-            isaacgym.VecTaskPython: The created environment
-            Dict: the corresponding config file
+        返回:
+            isaacgym.VecTaskPython: 创建的环境实例
+            Dict: 对应的配置文件
         """
-        # if no args passed get command line arguments
+        # 如果没有传入args参数，则获取命令行参数
         if args is None:
             args = get_args()
-        # check if there is a registered env with that name
+        # 检查是否存在具有该名称的已注册环境
         if name in self.task_classes:
             task_class = self.get_task_class(name)
         else:
-            raise ValueError(f"Task with name: {name} was not registered")
+            raise ValueError(f"名称为: {name} 的任务未被注册")
+        # 如果未提供配置，则加载默认配置
         if env_cfg is None:
-            # load config files
+            # 加载配置文件
             env_cfg, _ = self.get_cfgs(name)
-        # override cfg from args (if specified)
+        # 从args覆盖配置(如果已指定)
         env_cfg, _ = update_cfg_from_args(env_cfg, None, args)
         set_seed(env_cfg.seed)
-        # parse sim params (convert to dict first)
+        # 解析模拟参数(首先转换为字典)
         sim_params = {"sim": class_to_dict(env_cfg.sim)}
         sim_params = parse_sim_params(args, sim_params)
+        # 创建并返回环境实例
         env = task_class(   cfg=env_cfg,
                             sim_params=sim_params,
                             physics_engine=args.physics_engine,
@@ -102,39 +104,42 @@ class TaskRegistry():
         return env, env_cfg
 
     def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default") -> Tuple[OnPolicyRunner, LeggedRobotCfgPPO]:
-        """ Creates the training algorithm  either from a registered namme or from the provided config file.
+        """ 创建训练算法，可以基于已注册的名称或提供的配置文件。
 
-        Args:
-            env (isaacgym.VecTaskPython): The environment to train (TODO: remove from within the algorithm)
-            name (string, optional): Name of a registered env. If None, the config file will be used instead. Defaults to None.
-            args (Args, optional): Isaac Gym comand line arguments. If None get_args() will be called. Defaults to None.
-            train_cfg (Dict, optional): Training config file. If None 'name' will be used to get the config file. Defaults to None.
-            log_root (str, optional): Logging directory for Tensorboard. Set to 'None' to avoid logging (at test time for example). 
-                                      Logs will be saved in <log_root>/<date_time>_<run_name>. Defaults to "default"=<path_to_LEGGED_GYM>/logs/<experiment_name>.
+        参数:
+            env (isaacgym.VecTaskPython): 要训练的环境（TODO：从算法内部移除）
+            name (string, 可选): 已注册环境的名称。如果为None，则使用配置文件。默认为None。
+            args (Args, 可选): Isaac Gym命令行参数。如果为None，则调用get_args()。默认为None。
+            train_cfg (Dict, 可选): 训练配置文件。如果为None，则使用'name'获取配置文件。默认为None。
+            log_root (str, 可选): Tensorboard的日志目录。设置为'None'可避免记录日志（例如在测试时）。
+                                  日志将保存在<log_root>/<date_time>_<run_name>中。默认为"default"=<path_to_LEGGED_GYM>/logs/<experiment_name>。
 
-        Raises:
-            ValueError: Error if neither 'name' or 'train_cfg' are provided
-            Warning: If both 'name' or 'train_cfg' are provided 'name' is ignored
+        异常:
+            ValueError: 如果'name'和'train_cfg'都未提供则抛出错误
+            Warning: 如果同时提供了'name'和'train_cfg'，则忽略'name'
 
-        Returns:
-            PPO: The created algorithm
-            Dict: the corresponding config file
+        返回:
+            PPO: 创建的算法
+            Dict: 对应的配置文件
         """
-        # if no args passed get command line arguments
+        # 如果没有传入args参数，则获取命令行参数
         if args is None:
             args = get_args()
-        # if config files are passed use them, otherwise load from the name
+        
+        # 如果传入了配置文件则使用它们，否则从名称加载
         if train_cfg is None:
             if name is None:
-                raise ValueError("Either 'name' or 'train_cfg' must be not None")
-            # load config files
+                raise ValueError("必须提供'name'或'train_cfg'中的一个")
+            # 加载配置文件
             _, train_cfg = self.get_cfgs(name)
         else:
             if name is not None:
-                print(f"'train_cfg' provided -> Ignoring 'name={name}'")
-        # override cfg from args (if specified)
+                print(f"已提供'train_cfg' -> 忽略'name={name}'")
+        
+        # 从args覆盖配置（如果已指定）
         _, train_cfg = update_cfg_from_args(None, train_cfg, args)
 
+        # 根据log_root参数设置日志目录
         if log_root=="default":
             log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
             log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
@@ -143,15 +148,18 @@ class TaskRegistry():
         else:
             log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
         
+        # 将配置转换为字典并创建runner实例
         train_cfg_dict = class_to_dict(train_cfg)
         runner = OnPolicyRunner(env, train_cfg_dict, log_dir, device=args.rl_device)
-        #save resume path before creating a new log_dir
+        
+        # 在创建新log_dir之前保存恢复路径
         resume = train_cfg.runner.resume
         if resume:
-            # load previously trained model
+            # 加载之前训练的模型
             resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
-            print(f"Loading model from: {resume_path}")
+            print(f"从以下位置加载模型: {resume_path}")
             runner.load(resume_path)
+        
         return runner, train_cfg
 
 # make global task registry
