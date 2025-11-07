@@ -242,7 +242,9 @@ class Go2Robot(LeggedRobot):
         # 转换为 PyTorch 张量并存储在设备上
         self.height_samples = torch.tensor(self.height_field_raw).view(self.tot_rows, self.terrain.tot_cols).to(self.device)
     def create_sim(self):
-        """ Creates simulation, terrain and evironments
+        """ 
+        Creates simulation, terrain and evironments
+        train.py里面make_env函数最后a会创建一个Go2Robot类的实例,然后会在构造函数里面调用这个函数初始化环境
         """
         self.up_axis_idx = 2 # 2 for z, 1 for y -> adapt gravity accordingly
         self.sim = self.gym.create_sim(self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
@@ -619,7 +621,9 @@ class Go2Robot(LeggedRobot):
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.
         """
+        # 创建gymapi的类型
         hf_params = gymapi.HeightFieldParams()
+        # 这下面都是载入参数
         hf_params.column_scale = self.terrain.cfg.horizontal_scale
         hf_params.row_scale = self.terrain.cfg.horizontal_scale
         hf_params.vertical_scale = self.terrain.cfg.vertical_scale
@@ -631,23 +635,26 @@ class Go2Robot(LeggedRobot):
         hf_params.static_friction = self.cfg.terrain.static_friction
         hf_params.dynamic_friction = self.cfg.terrain.dynamic_friction
         hf_params.restitution = self.cfg.terrain.restitution
-
+        # 调用isaacgym的api接口把地形写进去
         self.gym.add_heightfield(self.sim, self.terrain.heightsamples, hf_params)
         self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)
 
     def _create_trimesh(self):
         """ Adds a triangle mesh terrain to the simulation, sets parameters based on the cfg.
         # """
+        # 创建gymapi的类型
         tm_params = gymapi.TriangleMeshParams()
+
+        # 这下面都是载入参数
         tm_params.nb_vertices = self.terrain.vertices.shape[0]
         tm_params.nb_triangles = self.terrain.triangles.shape[0]
-
         tm_params.transform.p.x = -self.terrain.cfg.border_size 
         tm_params.transform.p.y = -self.terrain.cfg.border_size
         tm_params.transform.p.z = 0.0
         tm_params.static_friction = self.cfg.terrain.static_friction
         tm_params.dynamic_friction = self.cfg.terrain.dynamic_friction
         tm_params.restitution = self.cfg.terrain.restitution
+        # 调用isaacgym的api接口把地形写进去
         self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'), self.terrain.triangles.flatten(order='C'), tm_params)   
         self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)
 

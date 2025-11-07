@@ -20,7 +20,7 @@ from .legged_robot_config import LeggedRobotCfg
 
 class LeggedRobot(BaseTask):
 
-    # 环境创建 
+    # 环境创建
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
@@ -517,7 +517,7 @@ class LeggedRobot(BaseTask):
             rng = self.cfg.domain_rand.added_mass_range
             props[0].mass += np.random.uniform(rng[0], rng[1])
         return props
- 
+
 
 
     # 奖励函数设计
@@ -920,7 +920,3 @@ class LeggedRobot(BaseTask):
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
-
-
-    
-

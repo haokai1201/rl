@@ -54,4 +54,10 @@ task_registry.register( "anymal_c_flat", Anymal, AnymalCFlatCfg(), AnymalCFlatCf
 task_registry.register( "anymal_b", Anymal, AnymalBRoughCfg(), AnymalBRoughCfgPPO() )
 task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() )
+
+'''
+名字:"go2"(str) task_class: Go2Robot(VecEnv),
+环境配置:Go2RoughCfg(LeggedRobotCfg) 
+训练配置: Go2RoughCfgPPO(LeggedRobotCfgPPO)
+'''
 task_registry.register( "go2", Go2Robot, Go2RoughCfg(), Go2RoughCfgPPO())
