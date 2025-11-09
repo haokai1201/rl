@@ -1,33 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: BSD-3-Clause
-# 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Copyright (c) 2021 ETH Zurich, Nikita Rudin
-
 import numpy as np
 from numpy.random import choice
 from scipy import interpolate
@@ -155,7 +125,7 @@ class Terrain:
         # 来生成地形。所以想调用这些函数就必须先创建一个 SubTerrain 对象。
         terrain = terrain_utils.SubTerrain(   "terrain",
                                 width=self.width_per_env_pixels,
-                                length=self.width_per_env_pixels,
+                                length=self.length_per_env_pixels,
                                 vertical_scale=self.cfg.vertical_scale,             # 精细程度
                                 horizontal_scale=self.cfg.horizontal_scale)         # 高度范围
         slope = difficulty * 0.4
@@ -264,3 +234,88 @@ def pit_terrain(terrain, depth, platform_size=1.):
     y1 = terrain.width // 2 - platform_size
     y2 = terrain.width // 2 + platform_size
     terrain.height_field_raw[x1:x2, y1:y2] = -depth
+
+def obstest_terrain(self):
+        # 这个方法的输入参数很重要，我们需要生成地形的长度和宽度，这决定了返回的height_field_raw数组大小。
+        def new_sub_terrain(length = self.terrain_length, width = self.terrain_width): 
+            '''
+              定义 new_sub_terrain 方法
+              new_sub_terrain 是一个辅助函数，创建一个新的 SubTerrain 对象
+            '''
+           
+            return SubTerrain(terrain_name     = "terrain",
+                              width            = width,
+                              length           = length,
+                              vertical_scale   = self.cfg.vertical_scale,
+                              horizontal_scale = self.cfg.horizontal_scale)
+        '''
+        列col/length
+        ^
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |
+        |---------------------------------------------------->行row/width
+        
+        按照不同列生成不同的地形，那就需要在每一组地形块的所有行生成不同的地形
+        length_per_env_pixels:每一个地形块的行像素数
+        width_per_env_pixels :每一个地形块的列像素数
+        tot_rows:总行像素数
+        tot_cols:总列像素数
+        '''
+        # 平坦地形
+        self.height_field_raw[0*self.length_per_env_pixels:1*self.length_per_env_pixels,:] = (
+            sloped_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), slope = 0.0).height_field_raw
+        )
+        
+        # 上坡地形
+        self.height_field_raw[1*self.length_per_env_pixels:2*self.length_per_env_pixels,:] = (
+            pyramid_sloped_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), slope = -0.3).height_field_raw
+        )
+        
+        # 随机地形
+        self.height_field_raw[2*self.length_per_env_pixels:3*self.length_per_env_pixels,:] = (
+             random_uniform_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                                    min_height=-0.15, max_height=0.15, 
+                                    step=0.2, downsampled_scale=0.5).height_field_raw
+        )
+        
+        # 带障碍物的地形
+        self.height_field_raw[3*self.length_per_env_pixels:4*self.length_per_env_pixels,:] = (
+             discrete_obstacles_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                                        max_height=0.15, min_size=1., max_size=5., num_rects=20).height_field_raw
+        )
+        
+        # 波浪地形
+        self.height_field_raw[4*self.length_per_env_pixels:5*self.length_per_env_pixels,:] = (
+             wave_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                          num_waves=2., amplitude=1.).height_field_raw
+        )
+        
+        # 楼梯地形
+        self.height_field_raw[5*self.length_per_env_pixels:6*self.length_per_env_pixels,:] = (
+             stairs_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                            step_width=0.75, step_height=0.25).height_field_raw
+        )
+        
+        # 楼梯地形
+        self.height_field_raw[6*self.length_per_env_pixels:7*self.length_per_env_pixels,:] = (
+             stairs_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                            step_width=0.75, step_height=0.25).height_field_raw
+        )
+                
+        # 跳石地形
+        self.height_field_raw[7*self.length_per_env_pixels:8*self.length_per_env_pixels,:] = (
+             stepping_stones_terrain(new_sub_terrain(width=self.length_per_env_pixels,length = self.tot_rows), 
+                                     stone_size=1.,stone_distance=0.25, 
+                                     max_height=0.2, platform_size=0.).height_field_raw
+        )

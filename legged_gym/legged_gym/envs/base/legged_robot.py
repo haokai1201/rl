@@ -57,9 +57,9 @@ class LeggedRobot(BaseTask):
         这些张量将被用于后续的环境步进(step)过程中。
         """
         # 获取 Gym 中各个物理状态的 GPU Tensor
-        actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
-        dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
-        net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim)
+        actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)       # 机器人状态
+        dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)              # 关节状态
+        net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim)    # 接触力
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
@@ -67,10 +67,10 @@ class LeggedRobot(BaseTask):
         # 将原始张量包装成可读性更强的形式，并进行切片处理以提取特定数据
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
-        self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]
-        self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
-        self.base_quat = self.root_states[:, 3:7]
-
+        self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0]  # view() 方法用于改变张量的形状
+        self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]  # [... , 0] 是高级索引，... 表示选择所有前面的维度
+        self.base_quat = self.root_states[:, 3:7]                                   # 机器人的旋转四元数,
+                                                                                    # [:, 3:7] 表示选择所有行的第3到第6列（不包括第7列）
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
 
         # 初始化一些将在后续步骤中使用的辅助变量和状态张量
@@ -96,7 +96,6 @@ class LeggedRobot(BaseTask):
         if self.cfg.terrain.measure_heights:
             self.height_points = self._init_height_points()
         self.measured_heights = 0
-
         # 设置默认关节位置以及对应的PD控制器增益系数
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         for i in range(self.num_dofs):
@@ -124,17 +123,17 @@ class LeggedRobot(BaseTask):
         self.reward_scales = class_to_dict(self.cfg.rewards.scales)
         self.command_ranges = class_to_dict(self.cfg.commands.ranges)
         if self.cfg.terrain.mesh_type not in ['heightfield', 'trimesh']:
-            self.cfg.terrain.curriculum = False
+            self.cfg.terrain.curriculum = False                             # 禁用地形 curriculum（课程）
         self.max_episode_length_s = self.cfg.env.episode_length_s
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
-
+        # 推送机器人的时间间隔
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
     def set_camera(self, position, lookat):
-        """ Set camera position and direction
+        """ Set camera 相机位置和观察目标点
         """
         cam_pos = gymapi.Vec3(position[0], position[1], position[2])
         cam_target = gymapi.Vec3(lookat[0], lookat[1], lookat[2])
-        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
+        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)      # 设置仿真查看器的相机视角
     def _draw_debug_vis(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).
             Default behaviour: draws height measurement points
@@ -203,8 +202,8 @@ class LeggedRobot(BaseTask):
         
         # 为heightfield或trimesh类型初始化地形对象
         if mesh_type in ['heightfield', 'trimesh']:
-            self.terrain = Terrain(self.cfg.terrain, self.num_envs)
-            
+            # Terrain类在这里
+            self.terrain = Terrain(self.cfg.terrain, self.num_envs)      
         # 根据指定的网格类型创建地形
         if mesh_type == 'plane':
             self._create_ground_plane()
@@ -313,9 +312,11 @@ class LeggedRobot(BaseTask):
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
+        # 创建一个 Transform 对象，表示机器人的初始位姿
         start_pose = gymapi.Transform()
+        # 设置初始位置，将 self.base_init_state 的前三个值 (x, y, z) 赋给 start_pose.p
         start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
-
+        # 调用 `_get_env_origins()` 方法，获取环境原点信息
         self._get_env_origins()
         env_lower = gymapi.Vec3(0., 0., 0.)
         env_upper = gymapi.Vec3(0., 0., 0.)
@@ -324,7 +325,9 @@ class LeggedRobot(BaseTask):
         for i in range(self.num_envs):
             # create env instance
             env_handle = self.gym.create_env(self.sim, env_lower, env_upper, int(np.sqrt(self.num_envs)))
+            # 获取该环境的原点位置，并克隆一个副本
             pos = self.env_origins[i].clone()
+            # 在 x 和 y 方向上随机偏移 [-1, 1] 范围内的值
             pos[:2] += torch_rand_float(-1., 1., (2,1), device=self.device).squeeze(1)
             start_pose.p = gymapi.Vec3(*pos)
                 
